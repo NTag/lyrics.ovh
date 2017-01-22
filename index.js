@@ -1,10 +1,14 @@
 const express = require('express');
 const alltomp3 = require('alltomp3');
+const request = require('request-promise');
+const cors = require('cors')
 var things = [];
 let appApi = express();
-let appFront = express();
+let appFrontend = express();
 const portApi = 8080;
-const portFront = 8081;
+const portFrontend = 8081;
+
+appApi.use(cors());
 
 appApi.get('/v1/:artist/:title', function (req, res) {
   if (!req.params.artist || !req.params.title) {
@@ -18,6 +22,21 @@ appApi.get('/v1/:artist/:title', function (req, res) {
   });
 });
 
+appApi.get('/suggest/:term', function (req, res) {
+  request({
+    uri: 'http://api.deezer.com/search?limit=15&q=' + req.params.term,
+    json: true
+  }).then(results => {
+    res.send(results);
+  });
+});
+
+appFrontend.use(express.static('frontend'));
+
 appApi.listen(portApi, function () {
   console.log('API listening on port ' + portApi);
+});
+
+appFrontend.listen(portFrontend, function () {
+  console.log('Frontend listening on port ' + portFrontend);
 });

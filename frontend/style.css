@@ -1,0 +1,120 @@
+html {
+  height: 100%;
+}
+body {
+  background-color: #333;
+  color: white;
+  margin: 0px;
+  padding: 0px;
+  font-family: 'Open Sans', sans-serif;
+  min-height: 100%;
+  position: relative;
+}
+a {
+  text-decoration: none;
+}
+a:hover {
+  color: #bf360c;
+}
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+.title {
+  text-align: center;
+  margin-bottom: 30px;
+  font-family: 'Bungee Shade', cursive;
+  padding: 20px;
+  color: #FF5722;
+}
+.title-name {
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
+.title-name a {
+  color: #FF5722;
+}
+.title-name a:hover {
+  color: #bf360c;
+}
+.title-legend {
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  margin-top: 5px;
+  font-size: 18px;
+  font-style: italic;
+  letter-spacing: 3px;
+}
+.search {
+  margin: 20px;
+  padding: 20px;
+}
+.search-song {
+  width: 100%;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-bottom: 1px solid #ff8a65;
+  color: white;
+  height: 30px;
+  border-right: none;
+  font-size: 16px;
+  font-family: 'Open Sans', sans-serif;
+}
+.search-song:focus {
+  outline: none;
+}
+
+.results {
+  margin: 0px;
+  padding: 0px;
+  list-style-type: none;
+  padding-top: 10px;
+  margin-bottom: -20px;
+}
+.result {
+  border-bottom: 1px solid #ff8a65;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  cursor: pointer;
+}
+.result:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+.result.result-last {
+  border-bottom: none;
+}
+.lyrics {
+  margin: 20px;
+  font-family: 'Crimson Text', serif;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-bottom: 50px;
+}
+.lyrics-title {
+  text-align: center;
+}
+.copy-lyrics {
+  text-align: right;
+  cursor: pointer;
+  font-family: 'Open Sans', sans-serif;
+  color: #FF5722;
+  text-transform: uppercase;
+}
+
+.credits {
+  font-weight: 800;
+  text-transform: uppercase;
+  width: 100%;
+  text-align: center;
+  position: absolute;
+  bottom: 0;
+}
+.credits a {
+  color: #aaa;
+  display: inline-block;
+  margin-left: 20px;
+  margin-right: 20px;
+}
