@@ -1,0 +1,16 @@
+{
+  "name": "lyrics.ovh",
+  "version": "1.0.0",
+  "description": "Only the lyrics",
+  "main": "index.js",
+  "scripts": {
+      "start": "node ."
+  },
+  "repository": "git@github.com:NTag/lyrics.ovh.git",
+  "author": "Basile Bruneau <basilebruneau@gmail.com>",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "alltomp3": "https://github.com/AllToMP3/alltomp3",
+    "express": "^4.14.0"
+  }
+}
