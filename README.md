@@ -1,10 +1,13 @@
 # lyrics.ovh: Only the lyrics
 
-The website is available here: https://lyrics.ovh.
+Source of the website https://lyrics.ovh which allows you to find the lyrics for a song quickly and without ads.
+
+A Chrome Extension is also available, thanks to Varal7: https://github.com/Varal7/lyrics-chrome-extension.
 
 ## API documentation
 
-The documentation of the API is available on Apiary.io: http://docs.lyricsovh.apiary.io/.
+An API is available to get the lyrics of a song.
+The documentation is available on Apiary.io: http://docs.lyricsovh.apiary.io/.
 
 ## How to start
 ```
