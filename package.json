@@ -10,7 +10,7 @@
   "author": "Basile Bruneau <basilebruneau@gmail.com>",
   "license": "GPL-3.0",
   "dependencies": {
-    "alltomp3": "https://github.com/AllToMP3/alltomp3",
+    "alltomp3": "0.2.12",
     "cors": "^2.8.1",
     "express": "^4.14.0",
     "request": "^2.79.0",
