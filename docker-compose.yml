@@ -1,0 +1,18 @@
+version: "3.7"
+
+services:
+  backend:
+    image: docker.ntag.fr/ovhlyrics:latest
+    ports:
+      - "20050:8080"
+      - "20051:8081"
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+          cpus: "0.5"
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: start-first

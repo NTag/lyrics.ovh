@@ -1,0 +1,38 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Login to Docker registry
+        uses: docker/login-action@v1
+        with:
+          registry: docker.ntag.fr
+          username: docker
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: docker.ntag.fr/ovhlyrics:latest
+      - name: Image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}
+      - name: Set SSH key
+        uses: webfactory/ssh-agent@v0.5.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+      - name: Auth
+        run: ssh-keyscan -H two.ntag.fr >> ~/.ssh/known_hosts
+      - name: Deploy
+        run: docker stack deploy --with-registry-auth -c docker-compose.yml ovhlyrics
+        env:
+          DOCKER_HOST: ssh://debian@two.ntag.fr
