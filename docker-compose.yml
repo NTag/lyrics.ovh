@@ -3,6 +3,10 @@ version: "3.7"
 services:
   backend:
     image: docker.ntag.fr/ovhlyrics:latest
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "20050:8080"
       - "20051:8081"
