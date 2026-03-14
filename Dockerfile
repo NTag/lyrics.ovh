@@ -1,15 +1,11 @@
-FROM node:11
+FROM node:22-slim
 
-# Create app directory
-RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 
-# Install app dependencies
-COPY package.json /usr/src/app/
-RUN npm install
+COPY package.json package-lock.json* ./
+RUN npm install --production
 
-# Bundle app source
-COPY . /usr/src/app
+COPY . .
 
 EXPOSE 8080
 EXPOSE 8081
