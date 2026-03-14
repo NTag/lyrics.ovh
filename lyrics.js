@@ -55,8 +55,13 @@ function textln(html) {
   return text;
 }
 
-function requireNonEmpty(text) {
-  if (!text || text.trim().length < 20) throw new Error("No lyrics found");
+function cleanLyrics(text) {
+  text = text.trim();
+  // Collapse 3+ consecutive newlines into 2 (one blank line)
+  text = text.replace(/\n{3,}/g, "\n\n");
+  // Remove trailing spaces on each line
+  text = text.replace(/ +\n/g, "\n");
+  if (text.length < 20) throw new Error("No lyrics found");
   return text;
 }
 
@@ -118,7 +123,7 @@ function fromGenius(title, artistName) {
         $el.find("br").replaceWith("\n");
         lyrics += $el.text() + "\n";
       });
-      return requireNonEmpty(lyrics.trim());
+      return cleanLyrics(lyrics.trim());
     });
 }
 
@@ -148,7 +153,7 @@ function fromAZLyrics(title, artistName) {
         return false; // break
       }
     });
-    return requireNonEmpty(lyrics);
+    return cleanLyrics(lyrics);
   });
 }
 
@@ -168,7 +173,7 @@ function fromLetras(title, artistName) {
         $p.find("br").replaceWith("\n");
         lyrics += $p.text().trim() + "\n\n";
       });
-      return requireNonEmpty(lyrics.trim());
+      return cleanLyrics(lyrics.trim());
     },
   );
 }
@@ -213,7 +218,7 @@ function fromLyricsCom(title, artistName) {
       const el = $("#lyric-body-text");
       if (el.length === 0) throw new Error("Not found");
       el.find("br").replaceWith("\n");
-      return requireNonEmpty(el.text().trim());
+      return cleanLyrics(el.text().trim());
     });
 }
 
@@ -228,8 +233,12 @@ function fromParolesNet(title, artistName) {
       "/paroles-" +
       lyricsUrl(title),
   ).then(($) => {
-    if ($(".song-text").length === 0) throw new Error("Not found");
-    return requireNonEmpty(textln($(".song-text")));
+    const el = $(".song-text");
+    if (el.length === 0) throw new Error("Not found");
+    // Remove header and ad divs that are mixed into lyrics
+    el.find("h2").remove();
+    el.find("div[id], div[class]").remove();
+    return cleanLyrics(textln(el));
   });
 }
 
@@ -254,7 +263,7 @@ function fromLyricsMania(title, artistName) {
     urls.map((url) =>
       fetchHtml(url).then(($) => {
         if ($(".lyrics-body").length === 0) throw new Error("Not found");
-        return requireNonEmpty(textln($(".lyrics-body")));
+        return cleanLyrics(textln($(".lyrics-body")));
       }),
     ),
   );
