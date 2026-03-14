@@ -3,6 +3,31 @@ const cheerio = require("cheerio");
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+const FETCH_TIMEOUT = 5000; // 5s per source request
+
+// ── LRU Cache ────────────────────────────────────────────────
+
+const CACHE_MAX = 10000;
+const cache = new Map();
+
+function cacheGet(key) {
+  const val = cache.get(key);
+  if (val === undefined) return undefined;
+  // Move to end (most recently used)
+  cache.delete(key);
+  cache.set(key, val);
+  return val;
+}
+
+function cacheSet(key, val) {
+  if (cache.has(key)) cache.delete(key);
+  cache.set(key, val);
+  // Evict oldest entries if over limit
+  while (cache.size > CACHE_MAX) {
+    cache.delete(cache.keys().next().value);
+  }
+}
+
 function levenshtein(a, b) {
   const m = a.length,
     n = b.length;
@@ -80,6 +105,7 @@ async function fetchHtml(url, options = {}) {
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT },
     redirect: "follow",
+    signal: AbortSignal.timeout(FETCH_TIMEOUT),
     ...options,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -97,7 +123,10 @@ function fromGenius(title, artistName) {
   return fetch(
     "https://genius.com/api/search/multi?q=" +
       encodeURIComponent(artistName + " " + title),
-    { headers: { "User-Agent": USER_AGENT } },
+    {
+      headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT),
+    },
   )
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -290,6 +319,10 @@ function fromLyricsMania(title, artistName) {
  * @returns {Promise<string>}
  */
 function findLyrics(title, artistName) {
+  const key = artistName.toLowerCase() + "\n" + title.toLowerCase();
+  const cached = cacheGet(key);
+  if (cached) return Promise.resolve(cached);
+
   const promises = [
     fromGenius(title, artistName),
     fromAZLyrics(title, artistName),
@@ -305,7 +338,10 @@ function findLyrics(title, artistName) {
     promises.push(findLyrics(cleanTitle, artistName));
   }
 
-  return Promise.any(promises);
+  return Promise.any(promises).then((lyrics) => {
+    cacheSet(key, lyrics);
+    return lyrics;
+  });
 }
 
 module.exports = { findLyrics };
