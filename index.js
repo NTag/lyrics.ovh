@@ -20,6 +20,7 @@ const GARBAGE = new Set([
   "title",
   "unknown",
   "undefined",
+  "null",
   "no song playing",
   "_",
   "",
