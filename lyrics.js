@@ -97,6 +97,7 @@ const REJECT_PATTERNS = [
   /we do not have the lyrics/i,
   /submit lyrics/i,
   /paroles introuvables/i,
+  /n[ãa]o possui letra/i,
 ];
 
 function cleanLyrics(text) {
