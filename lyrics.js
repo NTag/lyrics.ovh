@@ -41,18 +41,29 @@ function stripToAlphaNum(str) {
   return str.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 }
 
-function textln(html) {
-  html.find("br").replaceWith("\n");
-  html.find("script").replaceWith("");
-  html.find("#video-musictory").replaceWith("");
-  html.find("strong").replaceWith("");
-  let text = html.text().trim();
-  text = text.replace(/\r\n\n/g, "\n");
-  text = text.replace(/\t/g, "");
-  text = text.replace(/\n\r\n/g, "\n");
-  text = text.replace(/ +/g, " ");
-  text = text.replace(/\n /g, "\n");
-  return text;
+function textln($el) {
+  $el.find("script").remove();
+  $el.find("#video-musictory").remove();
+  // Get inner HTML so we can process it as a string
+  let html = $el.html() || "";
+  // Normalize <br> variants to \n, eating surrounding whitespace/newlines
+  html = html.replace(/\s*<br\s*\/?>\s*/gi, "\n");
+  // Strip all remaining HTML tags
+  html = html.replace(/<[^>]+>/g, "");
+  // Decode common HTML entities
+  html = html.replace(/&amp;/g, "&");
+  html = html.replace(/&lt;/g, "<");
+  html = html.replace(/&gt;/g, ">");
+  html = html.replace(/&quot;/g, '"');
+  html = html.replace(/&#x27;/g, "'");
+  html = html.replace(/&nbsp;/g, " ");
+  // Clean up whitespace
+  html = html.replace(/\r\n/g, "\n");
+  html = html.replace(/\t/g, "");
+  html = html.replace(/ +/g, " ");
+  html = html.replace(/\n /g, "\n");
+  html = html.replace(/ \n/g, "\n");
+  return html.trim();
 }
 
 function cleanLyrics(text) {

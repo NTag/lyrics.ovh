@@ -4,8 +4,8 @@ const cors = require("cors");
 
 const appApi = express();
 const appFrontend = express();
-const portApi = 8060;
-const portFrontend = 8061;
+const portApi = 8080;
+const portFrontend = 8081;
 
 appApi.use(cors());
 

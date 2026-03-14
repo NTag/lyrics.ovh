@@ -1,101 +1,109 @@
 "use strict";
 
-var searchInput = $("#search-input");
-var results = $("#results");
-// var apiUrl = 'https://api.lyrics.ovh';
-var apiUrl = "http://localhost:8060";
-var lyricsDiv = $("#lyrics");
-var timeoutSuggest;
-lyricsDiv.hide();
-searchInput.on("input", function () {
-  if (timeoutSuggest) {
-    clearTimeout(timeoutSuggest);
-  }
-  timeoutSuggest = setTimeout(suggestions, 300);
+var apiUrl = "https://api.lyrics.ovh";
+// var apiUrl = "http://localhost:8060";
+
+var searchInput = document.getElementById("search-input");
+var resultsList = document.getElementById("results");
+var lyricsDiv = document.getElementById("lyrics");
+var debounceTimer;
+
+searchInput.addEventListener("input", function () {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(fetchSuggestions, 300);
 });
 
-function removeResults() {
-  $(".result").remove();
+function clearResults() {
+  resultsList.innerHTML = "";
 }
 
-function suggestions() {
-  var term = searchInput.val();
+function escapeHtml(str) {
+  var div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function fetchSuggestions() {
+  var term = searchInput.value.trim();
   if (!term) {
-    removeResults();
+    clearResults();
     return;
   }
-  console.log("Search suggestions for", term);
-  $.getJSON(apiUrl + "/suggest/" + encodeURIComponent(term), function (data) {
-    removeResults();
-    var finalResults = [];
-    var seenResults = [];
-    data.data.forEach(function (result) {
-      if (seenResults.length >= 5) {
-        return;
-      }
-      var t = result.title + " - " + result.artist.name;
-      if (seenResults.indexOf(t) >= 0) {
-        return;
-      }
-      seenResults.push(t);
-      finalResults.push({
-        display: t,
-        artist: result.artist.name,
-        title: result.title,
+
+  fetch(apiUrl + "/suggest/" + encodeURIComponent(term))
+    .then(function (res) {
+      return res.json();
+    })
+    .then(function (data) {
+      clearResults();
+      if (!data.data) return;
+
+      var seen = [];
+      var count = 0;
+
+      data.data.forEach(function (item) {
+        if (count >= 5) return;
+        var key = item.title + " - " + item.artist.name;
+        if (seen.indexOf(key) >= 0) return;
+        seen.push(key);
+        count++;
+
+        var li = document.createElement("li");
+        li.className = "result";
+        li.textContent = key;
+        li.addEventListener("click", function () {
+          fetchLyrics(item.artist.name, item.title, key);
+        });
+        resultsList.appendChild(li);
       });
     });
-
-    var l = finalResults.length;
-    finalResults.forEach(function (result, i) {
-      var c = "result";
-      if (i == l - 1) {
-        c += " result-last";
-      }
-      var e = $('<li class="' + c + '">' + result.display + "</li>");
-      results.append(e);
-      e.click(function () {
-        songLyrics(result);
-      });
-    });
-  });
-}
-function songLyrics(song) {
-  console.log("Search lyrics for", song);
-  removeResults();
-  lyricsDiv.slideUp();
-  $.getJSON(apiUrl + "/v1/" + song.artist + "/" + song.title, function (data) {
-    var html = '<h3 class="lyrics-title">' + song.display + "</h3>";
-    html +=
-      '<div class="copy-lyrics" id="copy-lyrics" data-clipboard-target="#thelyrics">Copy the lyrics <span id="copy-ok"></span></div>';
-    html +=
-      '<div id="thelyrics">' + data.lyrics.replace(/\n/g, "<br />") + "</div>";
-    lyricsDiv.html(html);
-    lyricsDiv.slideDown();
-    var copyl = new Clipboard("#copy-lyrics");
-    copyl.on("success", function (e) {
-      e.clearSelection();
-      $("#copy-ok").text(" - Done :-)");
-    });
-  });
 }
 
-// Hide the link for Chrome extension if not using Chrome
-var isChromium = window.chrome,
-  winNav = window.navigator,
-  vendorName = winNav.vendor,
-  isOpera = winNav.userAgent.indexOf("OPR") > -1,
-  isIEedge = winNav.userAgent.indexOf("Edge") > -1,
-  isIOSChrome = winNav.userAgent.match("CriOS");
+function fetchLyrics(artist, title, display) {
+  clearResults();
+  searchInput.value = display;
 
-if (
-  !isIOSChrome &&
-  !(
-    isChromium !== null &&
-    isChromium !== undefined &&
-    vendorName === "Google Inc." &&
-    isOpera == false &&
-    isIEedge == false
+  lyricsDiv.innerHTML = '<div class="loading">Searching lyrics...</div>';
+
+  fetch(
+    apiUrl +
+      "/v1/" +
+      encodeURIComponent(artist) +
+      "/" +
+      encodeURIComponent(title),
   )
-) {
-  $("#dl-chrome-ext").hide();
+    .then(function (res) {
+      return res.json();
+    })
+    .then(function (data) {
+      if (data.error) {
+        lyricsDiv.innerHTML = '<div class="error">No lyrics found.</div>';
+        return;
+      }
+
+      var html = '<h2 class="lyrics-title">' + escapeHtml(display) + "</h2>";
+      html += '<div class="lyrics-actions">';
+      html += '<button class="copy-btn" id="copy-btn">Copy lyrics</button>';
+      html += "</div>";
+      html +=
+        '<div class="lyrics-text" id="lyrics-text">' +
+        escapeHtml(data.lyrics) +
+        "</div>";
+
+      lyricsDiv.innerHTML = html;
+
+      document
+        .getElementById("copy-btn")
+        .addEventListener("click", function () {
+          navigator.clipboard.writeText(data.lyrics).then(function () {
+            document.getElementById("copy-btn").textContent = "Copied!";
+            setTimeout(function () {
+              document.getElementById("copy-btn").textContent = "Copy lyrics";
+            }, 2000);
+          });
+        });
+    })
+    .catch(function () {
+      lyricsDiv.innerHTML = '<div class="error">Something went wrong.</div>';
+    });
 }

@@ -1,15 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <title>lyrics.ovh: Only the lyrics</title>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, shrink-to-fit=no"
-    />
-    <link
-      href="https://fonts.googleapis.com/css?family=Bungee+Shade|Crimson+Text|Open+Sans:400,800"
-      rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
     <script
@@ -20,21 +16,18 @@
   </head>
   <body>
     <div class="container">
-      <div class="title">
-        <h1 class="title-name">
-          <a href="https://lyrics.ovh">lyrics.ovh</a>
-        </h1>
-        <h2 class="title-legend">Only the lyrics</h2>
-      </div>
+      <header>
+        <h1><a href="/">lyrics.ovh</a></h1>
+        <p class="tagline">Only the lyrics</p>
+      </header>
 
       <div class="search">
         <input
           type="text"
-          name="song"
-          class="search-song"
-          autofocus="autofocus"
-          placeholder="Type the song you want the lyrics"
+          autofocus
+          placeholder="Search for a song..."
           id="search-input"
+          autocomplete="off"
         />
         <ul class="results" id="results"></ul>
       </div>
@@ -42,37 +35,11 @@
       <div class="lyrics" id="lyrics"></div>
     </div>
 
-    <div class="credits">
-      <a
-        target="_blank"
-        title="Access the lyrics when watching a YouTube video"
-        href="https://chrome.google.com/webstore/detail/lyricsovh/bgicajmcncjmjhlfmhpioopadfhoocbk"
-        id="dl-chrome-ext"
-        >Chrome extension</a
-      ><br /><br />
-      <a
-        target="_blank"
-        title="The code is open-source"
-        href="https://github.com/NTag/lyrics.ovh"
-        >Github</a
-      >
-      <a
-        target="_blank"
-        title="API documentation"
-        href="http://docs.lyricsovh.apiary.io/"
-        >API</a
-      >
-      <a target="_blank" title="Made by NTag" href="https://github.com/NTag"
-        >Made by NTag</a
-      >
-    </div>
+    <footer>
+      <a href="https://github.com/NTag/lyrics.ovh">GitHub</a>
+      <a href="https://github.com/NTag">Made by NTag</a>
+    </footer>
 
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"
-      integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
-      crossorigin="anonymous"
-    ></script>
-    <script src="search.js" charset="utf-8"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.5.16/clipboard.min.js"></script>
+    <script src="search.js"></script>
   </body>
 </html>
