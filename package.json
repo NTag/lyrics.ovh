@@ -8,7 +8,7 @@
   },
   "repository": "git@github.com:NTag/lyrics.ovh.git",
   "author": "Basile Bruneau <basilebruneau@gmail.com>",
-  "license": "GPL-3.0",
+  "license": "MIT",
   "dependencies": {
     "cheerio": "^1.0.0",
     "cors": "^2.8.5",
