@@ -91,6 +91,14 @@ function textln($el) {
   return html.trim();
 }
 
+const REJECT_PATTERNS = [
+  /no lyrics found/i,
+  /lyrics not available/i,
+  /we do not have the lyrics/i,
+  /submit lyrics/i,
+  /paroles introuvables/i,
+];
+
 function cleanLyrics(text) {
   text = text.trim();
   // Collapse 3+ consecutive newlines into 2 (one blank line)
@@ -98,6 +106,10 @@ function cleanLyrics(text) {
   // Remove trailing spaces on each line
   text = text.replace(/ +\n/g, "\n");
   if (text.length < 20) throw new Error("No lyrics found");
+  // Reject placeholder/error messages scraped from source pages
+  if (text.length < 80 && REJECT_PATTERNS.some((re) => re.test(text))) {
+    throw new Error("Scraped error message, not lyrics");
+  }
   return text;
 }
 
@@ -336,6 +348,14 @@ function findLyrics(title, artistName) {
   if (/\(.*\)/.test(title) || /\[.*\]/.test(title)) {
     const cleanTitle = title.replace(/\(.*\)/g, "").replace(/\[.*\]/g, "").trim();
     promises.push(findLyrics(cleanTitle, artistName));
+  }
+
+  // If artist contains separators (feat., &, /), try with just the primary artist
+  const primaryArtist = artistName
+    .split(/\s*(?:feat\.?|ft\.?|featuring|&|\/|,|;)\s*/i)[0]
+    .trim();
+  if (primaryArtist && primaryArtist.length > 1 && primaryArtist !== artistName) {
+    promises.push(findLyrics(title, primaryArtist));
   }
 
   return Promise.any(promises).then((lyrics) => {
