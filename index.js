@@ -9,11 +9,32 @@ const portFrontend = 8081;
 
 appApi.use(cors());
 
+// Decode + as space in path params (some clients use + instead of %20)
+appApi.use("/v1", function (req, res, next) {
+  req.url = req.url.replace(/\+/g, "%20");
+  next();
+});
+
+const GARBAGE = new Set([
+  "artist",
+  "title",
+  "unknown",
+  "undefined",
+  "no song playing",
+  "_",
+  "",
+]);
+
 appApi.get("/v1/:artist/:title", function (req, res) {
-  if (!req.params.artist || !req.params.title) {
+  const artist = req.params.artist;
+  const title = req.params.title;
+  if (!artist || !title) {
     return res.status(400).send({ error: "Artist or title missing" });
   }
-  findLyrics(req.params.title, req.params.artist)
+  if (GARBAGE.has(artist.toLowerCase()) || GARBAGE.has(title.toLowerCase())) {
+    return res.status(400).send({ error: "Invalid artist or title" });
+  }
+  findLyrics(title, artist)
     .then((l) => {
       res.send({ lyrics: l });
     })
