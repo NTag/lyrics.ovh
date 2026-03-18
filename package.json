@@ -4,7 +4,8 @@
   "description": "Only the lyrics",
   "main": "index.js",
   "scripts": {
-    "start": "node ."
+    "start": "node .",
+    "test": "node --test lyrics.test.js"
   },
   "repository": "git@github.com:NTag/lyrics.ovh.git",
   "author": "Basile Bruneau <basilebruneau@gmail.com>",

@@ -66,6 +66,31 @@ function stripToAlphaNum(str) {
   return str.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 }
 
+/**
+ * Check if a result title is a reasonable match for the requested title.
+ * Strips accents, punctuation, and compares normalized forms.
+ * Uses Levenshtein distance relative to the shorter string length.
+ */
+function titleMatches(requested, found) {
+  const normalize = (s) =>
+    deburr(s)
+      .toLowerCase()
+      .replace(/\(.*?\)/g, "")
+      .replace(/\[.*?\]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+  const a = normalize(requested);
+  const b = normalize(found);
+  if (!a || !b) return false;
+  // Exact match after normalization
+  if (a === b) return true;
+  // One contains the other
+  if (a.includes(b) || b.includes(a)) return true;
+  // Levenshtein: allow up to 30% distance relative to the shorter string
+  const dist = levenshtein(a, b);
+  const maxLen = Math.max(a.length, b.length);
+  return dist / maxLen <= 0.3;
+}
+
 function textln($el) {
   $el.find("script").remove();
   $el.find("#video-musictory").remove();
@@ -115,13 +140,18 @@ function cleanLyrics(text) {
 }
 
 async function fetchHtml(url, options = {}) {
+  const { rejectRedirects, ...fetchOptions } = options;
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT },
     redirect: "follow",
     signal: AbortSignal.timeout(FETCH_TIMEOUT),
-    ...options,
+    ...fetchOptions,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  // Some sites redirect unknown songs to artist page or homepage
+  if (rejectRedirects && res.redirected) {
+    throw new Error("Redirected (likely no match)");
+  }
   const body = await res.text();
   return cheerio.load(body);
 }
@@ -151,9 +181,15 @@ function fromGenius(title, artistName) {
       const hits = songSection?.hits || [];
       if (hits.length === 0) throw new Error("No results");
       // Pick the best match by comparing artist name
-      let bestHit = hits[0];
+      // Filter hits to only those whose title actually matches
+      const matchingHits = hits.filter((hit) =>
+        titleMatches(title, hit.result?.title || ""),
+      );
+      if (matchingHits.length === 0) throw new Error("No matching title");
+      // Among matches, pick the closest artist name
+      let bestHit = matchingHits[0];
       let bestScore = Infinity;
-      for (const hit of hits) {
+      for (const hit of matchingHits) {
         const score = levenshtein(
           artistName.toLowerCase(),
           (hit.result?.primary_artist?.name || "").toLowerCase(),
@@ -216,7 +252,9 @@ function fromAZLyrics(title, artistName) {
 function fromLetras(title, artistName) {
   const artist = kebabCase(deburr(artistName.trim()));
   const song = kebabCase(deburr(title.trim()));
-  return fetchHtml("https://www.letras.mus.br/" + artist + "/" + song + "/").then(
+  return fetchHtml("https://www.letras.mus.br/" + artist + "/" + song + "/", {
+    rejectRedirects: true,
+  }).then(
     ($) => {
       const el = $(".lyric-original p, .lyric-tra p");
       if (el.length === 0) throw new Error("Not found");
@@ -249,8 +287,10 @@ function fromLyricsCom(title, artistName) {
       results.each((_, el) => {
         const $el = $(el);
         const artist = $el.find(".lyric-meta-album-artist a").first().text();
+        const resultTitle = $el.find("a.lyric-meta-title").text();
         const link = $el.find("a.lyric-meta-title").attr("href");
-        if (link) {
+        // Only consider results where the title actually matches
+        if (link && titleMatches(title, resultTitle)) {
           const score = levenshtein(
             artistName.toLowerCase(),
             artist.toLowerCase(),
@@ -285,6 +325,7 @@ function fromParolesNet(title, artistName) {
       lyricsUrl(artistName) +
       "/paroles-" +
       lyricsUrl(title),
+    { rejectRedirects: true },
   ).then(($) => {
     const el = $(".song-text");
     if (el.length === 0) throw new Error("Not found");
@@ -314,7 +355,7 @@ function fromLyricsMania(title, artistName) {
   ];
   return Promise.any(
     urls.map((url) =>
-      fetchHtml(url).then(($) => {
+      fetchHtml(url, { rejectRedirects: true }).then(($) => {
         if ($(".lyrics-body").length === 0) throw new Error("Not found");
         return cleanLyrics(textln($(".lyrics-body")));
       }),
