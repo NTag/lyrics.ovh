@@ -1,0 +1,22 @@
+# Stack ovhlyrics on three.ntag.fr, deployed by the deploy gateway from
+# .github/workflows/deploy.yml: api.lyrics.ovh (8080) and lyrics.ovh (8081).
+# One of the busiest services on the server, and each API request scrapes
+# lyrics sites: the limits below are what keeps it from draining the server
+# (Docker's daemon caps logs at 5 × 20 MB per container). Healthcheck in the
+# Dockerfile.
+services:
+  backend:
+    image: docker.ntag.fr/ovhlyrics:latest
+    ports:
+      - "20050:8080"
+      - "20051:8081"
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: start-first
+      resources:
+        limits:
+          memory: 500M
+          cpus: "0.5"
