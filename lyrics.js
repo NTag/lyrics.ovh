@@ -523,10 +523,42 @@ const DISABLED_SOURCES = new Set(
     .map((name) => name.trim().toLowerCase())
     .filter(Boolean),
 );
+// Per-source outcomes, logged every minute: shows at a glance a source that
+// starts failing (blocked, rate-limited, timing out) in production.
+const stats = {};
+function count(name, outcome) {
+  const s = (stats[name] ??= {});
+  s[outcome] = (s[outcome] || 0) + 1;
+}
+function outcomeOf(error) {
+  const m = /HTTP (\d+)/.exec(error?.message || "");
+  if (m) return m[1] === "404" ? "miss" : "http" + m[1];
+  if (error?.name === "TimeoutError" || error?.name === "AbortError") return "timeout";
+  return "miss";
+}
+if (process.env.LYRICS_LOG_SOURCES) {
+  setInterval(() => {
+    if (Object.keys(stats).length === 0) return;
+    console.log("[sources] " + JSON.stringify(stats));
+    for (const k of Object.keys(stats)) delete stats[k];
+  }, 60_000).unref();
+}
+
 const enabled = (sources) =>
   Object.entries(sources)
     .filter(([name]) => !DISABLED_SOURCES.has(name))
-    .map(([, source]) => source);
+    .map(([name, source]) => (title, artistName) =>
+      source(title, artistName).then(
+        (lyrics) => {
+          count(name, "found");
+          return lyrics;
+        },
+        (error) => {
+          count(name, outcomeOf(error));
+          throw error;
+        },
+      ),
+    );
 
 async function lookup(title, artistName) {
   try {

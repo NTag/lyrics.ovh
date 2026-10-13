@@ -11,6 +11,8 @@ services:
       # These sites block three.ntag.fr's (datacenter) IP address; they still
       # work from other networks, so the code keeps them.
       LYRICS_DISABLED_SOURCES: genius,azlyrics,lyricsmania,letras,lyricscom
+      # Per-source outcomes (found, miss, http429, timeout…) logged every minute.
+      LYRICS_LOG_SOURCES: "1"
     ports:
       - "20050:8080"
       - "20051:8081"
