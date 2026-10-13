@@ -544,21 +544,35 @@ if (process.env.LYRICS_LOG_SOURCES) {
   }, 60_000).unref();
 }
 
+// A source that answers 429 or 503 is rate-limiting us: leave it alone for a
+// few seconds rather than keep hammering it (and risk a lasting ban).
+const COOLDOWN = 5000;
+const cooldownUntil = {};
+
 const enabled = (sources) =>
   Object.entries(sources)
     .filter(([name]) => !DISABLED_SOURCES.has(name))
-    .map(([name, source]) => (title, artistName) =>
-      source(title, artistName).then(
+    .map(([name, source]) => (title, artistName) => {
+      if (Date.now() < (cooldownUntil[name] || 0)) {
+        count(name, "skipped");
+        return Promise.reject(Object.assign(new Error(`${name} cooling down`), { unsure: true }));
+      }
+      return source(title, artistName).then(
         (lyrics) => {
           count(name, "found");
           return lyrics;
         },
         (error) => {
-          count(name, outcomeOf(error));
+          const outcome = outcomeOf(error);
+          if (outcome === "http429" || outcome === "http503") {
+            cooldownUntil[name] = Date.now() + COOLDOWN;
+          }
+          if (outcome !== "miss") error.unsure = true;
+          count(name, outcome);
           throw error;
         },
-      ),
-    );
+      );
+    });
 
 async function lookup(title, artistName) {
   try {
@@ -582,6 +596,12 @@ function missFresh(key) {
     return false;
   }
   return true;
+}
+
+// A lookup failed only because a source was rate-limited, down or slow says
+// nothing about the song: it must not be cached as a miss.
+function unsure(error) {
+  return Boolean(error?.unsure || error?.errors?.some(unsure));
 }
 
 function missSet(key) {
@@ -634,7 +654,7 @@ function findLyrics(title, artistName) {
       return lyrics;
     },
     (error) => {
-      missSet(key);
+      if (!unsure(error)) missSet(key);
       throw error;
     },
   );
