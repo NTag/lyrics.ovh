@@ -327,11 +327,11 @@ function fromParolesNet(title, artistName) {
       lyricsUrl(title),
     { rejectRedirects: true },
   ).then(($) => {
-    const el = $(".song-text");
+    const el = $("article.lyrics, .song-text").first();
     if (el.length === 0) throw new Error("Not found");
     // Remove header and ad divs that are mixed into lyrics
     el.find("h2").remove();
-    el.find("div[id], div[class]").remove();
+    el.find("div[id], div[class], div[style]").remove();
     return cleanLyrics(textln(el));
   });
 }
