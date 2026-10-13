@@ -363,7 +363,200 @@ function fromLyricsMania(title, artistName) {
   );
 }
 
+/**
+ * LRCLIB - open, community-maintained lyrics database with a free JSON API
+ * (https://lrclib.net). Exact lookup first, then a search.
+ */
+const LRCLIB_HEADERS = {
+  // LRCLIB asks clients to identify themselves.
+  "User-Agent": "lyrics.ovh (https://github.com/NTag/lyrics.ovh)",
+};
+
+async function fromLrclib(title, artistName) {
+  const plain = (r) =>
+    r && !r.instrumental && r.plainLyrics ? cleanLyrics(r.plainLyrics) : null;
+  const query = new URLSearchParams({
+    artist_name: artistName,
+    track_name: title,
+  });
+  const res = await fetch("https://lrclib.net/api/get?" + query, {
+    headers: LRCLIB_HEADERS,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT),
+  });
+  if (res.ok) {
+    const lyrics = plain(await res.json());
+    if (lyrics) return lyrics;
+  } else if (res.status !== 404) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  // No exact match: search, keep results whose title matches, closest artist.
+  const search = await fetch("https://lrclib.net/api/search?" + query, {
+    headers: LRCLIB_HEADERS,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT),
+  });
+  if (!search.ok) throw new Error(`HTTP ${search.status}`);
+  const results = (await search.json()).filter(
+    (r) => r.plainLyrics && !r.instrumental && titleMatches(title, r.trackName || ""),
+  );
+  if (results.length === 0) throw new Error("No matching result");
+  const best = results.reduce((a, b) =>
+    levenshtein(artistName.toLowerCase(), (b.artistName || "").toLowerCase()) <
+    levenshtein(artistName.toLowerCase(), (a.artistName || "").toLowerCase())
+      ? b
+      : a,
+  );
+  return plain(best);
+}
+
+/**
+ * NetEase Cloud Music - large catalog (Western songs included), public JSON
+ * API. Lyrics come as LRC: timestamps and credit lines are stripped.
+ */
+function artistMatches(requested, names) {
+  const normalize = (s) => deburr(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const a = normalize(requested);
+  if (!a) return false;
+  return names.some((name) => {
+    const b = normalize(name);
+    if (!b) return false;
+    if (a === b || a.includes(b) || b.includes(a)) return true;
+    return levenshtein(a, b) / Math.max(a.length, b.length) <= 0.3;
+  });
+}
+
+function lrcToText(lrc) {
+  return lrc
+    .split("\n")
+    .map((line) => line.replace(/^(\s*\[\d+:\d+(?:[.:]\d+)?\])+\s*/, ""))
+    // Metadata tags ([ti:…], [ar:…]) and credit lines ("作词 : …", "作曲 : …")
+    .filter((line) => !/^\s*\[[a-z]+:.*\]\s*$/i.test(line))
+    .filter((line) => !/^\s*[一-鿿]{1,8}\s*[:：]/.test(line))
+    .join("\n");
+}
+
+async function fromNetease(title, artistName) {
+  const search = await fetch(
+    "https://music.163.com/api/search/get?" +
+      new URLSearchParams({ s: artistName + " " + title, type: "1", limit: "10" }),
+    {
+      headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT),
+    },
+  );
+  if (!search.ok) throw new Error(`HTTP ${search.status}`);
+  const songs = (await search.json()).result?.songs || [];
+  const song = songs.find(
+    (s) =>
+      titleMatches(title, s.name || "") &&
+      artistMatches(artistName, (s.artists || []).map((a) => a.name || "")),
+  );
+  if (!song) throw new Error("No matching result");
+  const res = await fetch(
+    "https://music.163.com/api/song/lyric?id=" + song.id + "&lv=1",
+    {
+      headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT),
+    },
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const lrc = (await res.json()).lrc?.lyric;
+  if (!lrc) throw new Error("No lyrics");
+  // "纯音乐，请欣赏" = instrumental, enjoy
+  if (lrc.includes("纯音乐")) throw new Error("Instrumental");
+  return cleanLyrics(lrcToText(lrc));
+}
+
+/**
+ * eLyrics.net - direct URL construction
+ */
+function fromElyrics(title, artistName) {
+  const slug = (s) => kebabCase(deburr(s.trim().toLowerCase()));
+  const artist = slug(artistName);
+  const song = slug(title);
+  if (!artist || !song) return Promise.reject(new Error("Empty name"));
+  const letter = /[a-z]/.test(artist[0]) ? artist[0] : "0";
+  return fetchHtml(
+    `https://www.elyrics.net/read/${letter}/${artist}-lyrics/${song}-lyrics.html`,
+    { rejectRedirects: true },
+  ).then(($) => {
+    const el = $("#inlyr");
+    if (el.length === 0) throw new Error("Not found");
+    el.find("div, script, ins").remove();
+    // eLyrics adds the songwriters before the lyrics and the publishers'
+    // copyright after them.
+    const paragraphs = textln(el)
+      .split(/\n\s*\n/)
+      .filter((p, i, all) => {
+        if (i === 0 && /^songwriters?:/i.test(p.trim())) return false;
+        if (i === all.length - 1 && /©|ï¿½/.test(p)) return false;
+        return true;
+      });
+    return cleanLyrics(paragraphs.join("\n\n"));
+  });
+}
+
 // ── Main ─────────────────────────────────────────────────────
+
+/**
+ * Sources, by name. Each one can be turned off with LYRICS_DISABLED_SOURCES
+ * (comma-separated names): lyrics sites often block datacenter IP addresses
+ * while they keep working elsewhere, so they stay in the code. lrclib (an
+ * open API) is asked first; the others, in parallel, only when it finds
+ * nothing.
+ */
+const PRIMARY_SOURCES = {
+  lrclib: fromLrclib,
+};
+const SECONDARY_SOURCES = {
+  netease: fromNetease,
+  genius: fromGenius,
+  azlyrics: fromAZLyrics,
+  parolesnet: fromParolesNet,
+  lyricsmania: fromLyricsMania,
+  letras: fromLetras,
+  lyricscom: fromLyricsCom,
+  elyrics: fromElyrics,
+};
+const DISABLED_SOURCES = new Set(
+  (process.env.LYRICS_DISABLED_SOURCES || "")
+    .split(",")
+    .map((name) => name.trim().toLowerCase())
+    .filter(Boolean),
+);
+const enabled = (sources) =>
+  Object.entries(sources)
+    .filter(([name]) => !DISABLED_SOURCES.has(name))
+    .map(([, source]) => source);
+
+async function lookup(title, artistName) {
+  try {
+    return await Promise.any(enabled(PRIMARY_SOURCES).map((f) => f(title, artistName)));
+  } catch {
+    return Promise.any(enabled(SECONDARY_SOURCES).map((f) => f(title, artistName)));
+  }
+}
+
+// Songs not found stay "not found" for a while, so that apps asking again
+// and again for the same unknown song don't hit every source each time.
+const MISS_TTL = 6 * 60 * 60 * 1000;
+const MISS_MAX = 50000;
+const misses = new Map();
+
+function missFresh(key) {
+  const at = misses.get(key);
+  if (at === undefined) return false;
+  if (Date.now() - at > MISS_TTL) {
+    misses.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function missSet(key) {
+  misses.delete(key);
+  misses.set(key, Date.now());
+  while (misses.size > MISS_MAX) misses.delete(misses.keys().next().value);
+}
 
 /**
  * Find lyrics for a song by querying multiple sources in parallel.
@@ -376,15 +569,9 @@ function findLyrics(title, artistName) {
   const key = artistName.toLowerCase() + "\n" + title.toLowerCase();
   const cached = cacheGet(key);
   if (cached) return Promise.resolve(cached);
+  if (missFresh(key)) return Promise.reject(new Error("No lyrics found (cached)"));
 
-  const promises = [
-    fromGenius(title, artistName),
-    fromAZLyrics(title, artistName),
-    fromParolesNet(title, artistName),
-    fromLyricsMania(title, artistName),
-    fromLetras(title, artistName),
-    fromLyricsCom(title, artistName),
-  ];
+  const promises = [lookup(title, artistName)];
 
   // If title has parentheses/brackets, also try without them
   if (/\(.*\)/.test(title) || /\[.*\]/.test(title)) {
@@ -400,10 +587,28 @@ function findLyrics(title, artistName) {
     promises.push(findLyrics(title, primaryArtist));
   }
 
-  return Promise.any(promises).then((lyrics) => {
-    cacheSet(key, lyrics);
-    return lyrics;
-  });
+  // Titles taken from file names often start with a zero-padded track number
+  // ("06 Alone", "01. Intro"). Only tried once everything else failed, so a
+  // real title such as "99 Luftballons" never loses its number.
+  const unnumberedTitle = title.replace(/^0\d\s*[-._)]?\s+(?=\S)/, "");
+  let found = Promise.any(promises);
+  if (unnumberedTitle !== title && unnumberedTitle.length > 1) {
+    found = found.catch(() => findLyrics(unnumberedTitle, artistName));
+  }
+
+  return found.then(
+    (lyrics) => {
+      cacheSet(key, lyrics);
+      return lyrics;
+    },
+    (error) => {
+      missSet(key);
+      throw error;
+    },
+  );
 }
 
-module.exports = { findLyrics };
+module.exports = {
+  findLyrics,
+  sources: { ...PRIMARY_SOURCES, ...SECONDARY_SOURCES },
+};
